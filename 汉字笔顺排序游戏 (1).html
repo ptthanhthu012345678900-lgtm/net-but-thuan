@@ -1,0 +1,544 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>汉字笔顺排序游戏 · Sắp xếp nét chữ Hán</title>
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@700;900&display=swap">
+<style>
+  :root{
+    --bg:#f6f4ec; --card:#fffdf8; --ink:#2f3a36; --sub:#6b7772;
+    --green:#5b8c7d; --green-soft:#e3efe9; --gold:#e8a04b; --gold-soft:#fbeed8;
+    --ok:#4f9e6e; --ok-soft:#e2f2e8; --bad:#d96b6b; --bad-soft:#fbeaea;
+    --line:#e7e1d2; --shadow:0 8px 24px rgba(80,70,40,.10);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    min-height:100vh; display:flex; justify-content:center;
+  }
+  .app{width:100%; max-width:480px; padding:16px 16px 40px;}
+
+  /* ===== 顶部 ===== */
+  header{text-align:center; padding:8px 0 14px;}
+  header h1{font-size:22px; margin:0; letter-spacing:2px;}
+  header p{margin:4px 0 0; font-size:13px; color:var(--sub);}
+  .hud{display:flex; gap:10px; margin:14px 0;}
+  .hud .pill{flex:1; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 8px; text-align:center; box-shadow:var(--shadow);}
+  .hud .pill .num{font-size:20px; font-weight:800; color:var(--green);}
+  .hud .pill .lbl{font-size:11px; color:var(--sub); margin-top:2px;}
+
+  /* ===== 主卡片 ===== */
+  .board{background:var(--card); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); padding:18px;}
+  .char-row{display:flex; gap:16px; align-items:center;}
+  .tian{
+    width:150px; height:150px; flex:none; border:2px solid var(--green); border-radius:16px;
+    position:relative; background:
+      linear-gradient(to right, transparent 49%, var(--line) 49%, var(--line) 51%, transparent 51%),
+      linear-gradient(to bottom, transparent 49%, var(--line) 49%, var(--line) 51%, transparent 51%),
+      #fff;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tian .big{
+    font-family:"Noto Serif SC","Kaiti SC","STKaiti","KaiTi",serif;
+    font-size:96px; font-weight:900; color:#dcd6c6; line-height:1; transition:color .4s;
+  }
+  .tian.done .big{color:var(--ink);}
+  .info{flex:1; min-width:0;}
+  .info .py{font-size:22px; font-weight:700; color:var(--green);}
+  .info .vi{font-size:15px; color:var(--sub); margin:4px 0 10px;}
+  .info .meta{font-size:12px; color:var(--sub); margin-bottom:10px;}
+  .speak{
+    border:none; background:var(--green-soft); color:var(--green); border-radius:12px;
+    padding:8px 14px; font-size:14px; font-weight:600; cursor:pointer;
+  }
+  .speak:active{transform:scale(.96);}
+
+  /* ===== 排序槽 ===== */
+  .section-title{font-size:13px; color:var(--sub); margin:18px 0 10px; display:flex; justify-content:space-between; align-items:center;}
+  .slots{display:flex; flex-wrap:wrap; gap:10px;}
+  .slot{
+    width:64px; height:64px; border:2px dashed #cbbfa0; border-radius:14px;
+    background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    position:relative; transition:border-color .2s, background .2s;
+  }
+  .slot .idx{position:absolute; top:4px; left:7px; font-size:11px; color:#b7ab8a; font-weight:700;}
+  .slot.over{border-color:var(--green); background:var(--green-soft);}
+  .slot.ok{border-style:solid; border-color:var(--ok); background:var(--ok-soft);}
+  .slot svg{width:38px; height:38px;}
+
+  /* ===== 托盘卡片 ===== */
+  .tray{display:flex; flex-wrap:wrap; gap:10px; min-height:84px; padding:10px; border:1px dashed var(--line); border-radius:16px; background:#fff;}
+  .card{
+    width:74px; height:74px; background:var(--gold-soft); border:1.5px solid #ecd9ad; border-radius:14px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    cursor:grab; touch-action:none; user-select:none; box-shadow:0 3px 8px rgba(150,120,50,.12);
+  }
+  .card svg{width:34px; height:34px;}
+  .card .cz{font-size:15px; font-weight:700;}
+  .card .vi{font-size:10px; color:var(--sub);}
+  .card.hint{animation:pulse 1s ease-in-out 2; border-color:var(--gold);}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  .card.wrong{animation:shake .35s; background:var(--bad-soft); border-color:var(--bad);}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .card.dragging{opacity:.4;}
+
+  /* ===== 操作按钮 ===== */
+  .actions{display:flex; gap:10px; margin-top:16px;}
+  .btn{flex:1; border:none; border-radius:14px; padding:12px; font-size:15px; font-weight:700; cursor:pointer;}
+  .btn.ghost{background:#fff; border:1.5px solid var(--line); color:var(--sub);}
+  .btn.primary{background:var(--green); color:#fff;}
+  .btn:active{transform:scale(.97);}
+
+  /* ===== 完成弹层 ===== */
+  .mask{position:fixed; inset:0; background:rgba(40,45,40,.45); display:none; align-items:center; justify-content:center; padding:20px; z-index:30;}
+  .mask.show{display:flex;}
+  .panel{background:#fff; border-radius:22px; padding:24px; width:100%; max-width:360px; text-align:center; box-shadow:var(--shadow);}
+  .panel .badge{font-size:40px;}
+  .panel h2{margin:8px 0 2px; font-size:22px;}
+  .panel .sub{color:var(--sub); font-size:13px; margin-bottom:14px;}
+  .stroke-list{display:flex; flex-direction:column; gap:8px; margin:14px 0; text-align:left;}
+  .stroke-list .row{display:flex; align-items:center; gap:10px; background:var(--bg); border-radius:12px; padding:8px 12px;}
+  .stroke-list .row .n{width:22px; height:22px; border-radius:50%; background:var(--green); color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; flex:none;}
+  .stroke-list .row svg{width:28px; height:28px;}
+  .stroke-list .row .t{font-weight:700;}
+  .stroke-list .row .v{font-size:12px; color:var(--sub); margin-left:auto;}
+
+  /* 拖拽浮动层 */
+  .drag-clone{position:fixed; z-index:50; pointer-events:none; transform:translate(-50%,-50%);}
+  .drag-clone .card{width:74px; height:74px; box-shadow:0 12px 24px rgba(0,0,0,.2);}
+
+  .toast{position:fixed; left:50%; bottom:36px; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 18px; border-radius:20px; font-size:14px; opacity:0; transition:opacity .25s; z-index:40;}
+  .toast.show{opacity:1;}
+
+  /* ===== 成绩单 ===== */
+  .report-stats{display:flex; gap:10px; margin:14px 0;}
+  .report-stats .s{flex:1; background:var(--bg); border-radius:14px; padding:12px 6px;}
+  .report-stats .s .n{font-size:20px; font-weight:800; color:var(--green);}
+  .report-stats .s .l{font-size:11px; color:var(--sub); margin-top:2px;}
+  .rating{font-size:16px; font-weight:700; margin:6px 0 0;}
+  .mistake-list{display:flex; flex-direction:column; gap:8px; margin:12px 0; text-align:left; max-height:220px; overflow:auto;}
+  .mistake-list .m{background:var(--bg); border-radius:12px; padding:10px 12px;}
+  .mistake-list .m .top{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+  .mistake-list .m .ch{font-size:20px; font-weight:900; font-family:"Noto Serif SC","Kaiti SC",serif;}
+  .mistake-list .m .py{color:var(--green); font-weight:700; font-size:13px;}
+  .mistake-list .m .vi{font-size:12px; color:var(--sub);}
+  .mistake-list .m .times{margin-left:auto; font-size:11px; color:#fff; background:var(--bad); border-radius:10px; padding:2px 8px; flex:none;}
+  .mistake-list .m .strokes{display:flex; align-items:center; gap:8px; font-size:13px;}
+  .mistake-list .m .strokes svg{width:26px; height:26px;}
+  .mistake-list .m .arrow{color:var(--sub);}
+  .mistake-list .m .wrong-t{color:var(--bad);}
+  .mistake-list .m .right-t{color:var(--ok);}
+  .empty-tip{color:var(--sub); font-size:14px; padding:18px 0;}
+  .report-actions{display:flex; flex-direction:column; gap:10px; margin-top:14px;}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>汉字笔顺排序游戏</h1>
+    <p>Sắp xếp đúng thứ tự nét chữ Hán</p>
+  </header>
+
+  <div class="hud">
+    <div class="pill"><div class="num" id="progress">1/16</div><div class="lbl">生字 / Chữ</div></div>
+    <div class="pill"><div class="num" id="score">0</div><div class="lbl">得分 / Điểm</div></div>
+    <div class="pill"><div class="num" id="combo">0</div><div class="lbl">连击 / Chuỗi</div></div>
+  </div>
+
+  <div class="board">
+    <div class="char-row">
+      <div class="tian" id="tian"><div class="big" id="bigChar">一</div></div>
+      <div class="info">
+        <div class="py" id="pinyin">yī</div>
+        <div class="vi" id="meaning">một</div>
+        <div class="meta" id="meta">共 1 笔 · 1 nét</div>
+        <button class="speak" id="speakBtn">🔊 读字 Đọc</button>
+      </div>
+    </div>
+
+    <div class="section-title"><span>把笔画按笔顺放进格子 · Đặt nét đúng thứ tự</span></div>
+    <div class="slots" id="slots"></div>
+
+    <div class="section-title"><span>笔画卡片 · Thẻ nét</span></div>
+    <div class="tray" id="tray"></div>
+
+    <div class="actions">
+      <button class="btn ghost" id="hintBtn">💡 提示</button>
+      <button class="btn ghost" id="resetBtn">🔄 重做</button>
+      <button class="btn ghost" id="reportBtn">📋 成绩单</button>
+      <button class="btn primary" id="nextBtn">⏭ 下一个</button>
+    </div>
+  </div>
+</div>
+
+<!-- 完成弹层 -->
+<div class="mask" id="mask">
+  <div class="panel">
+    <div class="badge" id="winBadge">🎉</div>
+    <h2 id="winChar">一</h2>
+    <div class="sub" id="winSub">正确！Chính xác!</div>
+    <div class="stroke-list" id="strokeList"></div>
+    <button class="btn primary" id="winNext">下一个字 →</button>
+  </div>
+</div>
+
+<!-- 成绩单弹层 -->
+<div class="mask" id="reportMask">
+  <div class="panel">
+    <div class="badge">📋</div>
+    <h2>成绩单</h2>
+    <div class="sub">Bảng điểm của bạn</div>
+    <div class="rating" id="reportRating"></div>
+    <div class="report-stats">
+      <div class="s"><div class="n" id="rDone">0/16</div><div class="l">已完成 / Hoàn thành</div></div>
+      <div class="s"><div class="n" id="rAcc">100%</div><div class="l">正确率 / Chính xác</div></div>
+      <div class="s"><div class="n" id="rWrong">0</div><div class="l">错误 / Sai</div></div>
+    </div>
+    <div class="section-title" style="margin:6px 0"><span>错题 · Chữ sai</span></div>
+    <div class="mistake-list" id="mistakeList"></div>
+    <div class="report-actions">
+      <button class="btn primary" id="reportClose">返回游戏 Tiếp tục</button>
+      <button class="btn ghost" id="reportWrong">只练错题 Luyện lại chữ sai</button>
+      <button class="btn ghost" id="reportRestart">重新开始 Chơi lại</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ 笔画 SVG 字典 ============ */
+const STROKE_PATHS = {
+  heng:       "M16,50 H84",
+  shu:        "M50,16 V84",
+  pie:        "M66,22 L32,80",
+  na:         "M34,22 L74,80",
+  dian:       "M32,28 Q44,34 46,48 Q36,52 28,42 Q26,32 32,28 Z",
+  shugou:     "M50,16 V72 Q50,86 36,86",
+  hengzhe:    "M16,34 H70 V78",
+  hengzhegou: "M16,32 H70 V68 Q70,84 52,84",
+  shuzhe:     "M36,16 V66 H78",
+  hengpie:    "M16,32 H62 L34,78",
+  piedian:    "M66,22 L36,54 L72,80"
+};
+function strokeSVG(t, color){
+  const fill = (t==="dian") ? color : "none";
+  const w = (t==="dian") ? 1 : 9;
+  return `<svg viewBox="0 0 100 100" fill="${fill}" stroke="${color||"#334155"}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"><path d="${STROKE_PATHS[t]}"/></svg>`;
+}
+
+/* ============ 字库（HSK 入门） ============ */
+const GLYPHS = [
+  {ch:"一", py:"yī", vi:"một", strokes:[{t:"heng", z:"横", v:"ngang"}]},
+  {ch:"二", py:"èr", vi:"hai", strokes:[{t:"heng", z:"横", v:"ngang"},{t:"heng", z:"横", v:"ngang"}]},
+  {ch:"三", py:"sān", vi:"ba", strokes:[{t:"heng", z:"横", v:"ngang"},{t:"heng", z:"横", v:"ngang"},{t:"heng", z:"横", v:"ngang"}]},
+  {ch:"人", py:"rén", vi:"người", strokes:[{t:"pie", z:"撇", v:"phẩy"},{t:"na", z:"捺", v:"mác"}]},
+  {ch:"大", py:"dà", vi:"to lớn", strokes:[{t:"heng", z:"横", v:"ngang"},{t:"pie", z:"撇", v:"phẩy"},{t:"na", z:"捺", v:"mác"}]},
+  {ch:"小", py:"xiǎo", vi:"nhỏ", strokes:[{t:"shugou", z:"竖钩", v:"móc dọc"},{t:"dian", z:"点", v:"chấm (trái)"},{t:"dian", z:"点", v:"chấm (phải)"}]},
+  {ch:"上", py:"shàng", vi:"trên", strokes:[{t:"shu", z:"竖", v:"dọc"},{t:"heng", z:"横", v:"ngang"},{t:"heng", z:"横", v:"ngang"}]},
+  {ch:"下", py:"xià", vi:"dưới", strokes:[{t:"heng", z:"横", v:"ngang"},{t:"shu", z:"竖", v:"dọc"},{t:"dian", z:"点", v:"chấm"}]},
+  {ch:"口", py:"kǒu", vi:"miệng", strokes:[{t:"shu", z:"竖", v:"dọc"},{t:"hengzhe", z:"横折", v:"gập ngang"},{t:"heng", z:"横", v:"ngang"}]},
+  {ch:"日", py:"rì", vi:"mặt trời", strokes:[{t:"shu", z:"竖", v:"dọc"},{t:"hengzhe", z:"横折", v:"gập ngang"},{t:"heng", z:"横", v:"ngang"},{t:"heng", z:"横", v:"ngang"}]},
+  {ch:"月", py:"yuè", vi:"mặt trăng", strokes:[{t:"pie", z:"撇", v:"phẩy"},{t:"hengzhegou", z:"横折钩", v:"gập ngang móc"},{t:"heng", z:"横", v:"ngang"},{t:"heng", z:"横", v:"ngang"}]},
+  {ch:"山", py:"shān", vi:"núi", strokes:[{t:"shu", z:"竖", v:"dọc giữa"},{t:"shuzhe", z:"竖折", v:"gập dọc"},{t:"shu", z:"竖", v:"dọc phải"}]},
+  {ch:"水", py:"shuǐ", vi:"nước", strokes:[{t:"shugou", z:"竖钩", v:"móc dọc"},{t:"hengpie", z:"横撇", v:"gập ngang phẩy"},{t:"pie", z:"撇", v:"phẩy"},{t:"na", z:"捺", v:"mác"}]},
+  {ch:"火", py:"huǒ", vi:"lửa", strokes:[{t:"dian", z:"点", v:"chấm trái"},{t:"pie", z:"撇", v:"phẩy phải"},{t:"pie", z:"撇", v:"phẩy"},{t:"na", z:"捺", v:"mác"}]},
+  {ch:"木", py:"mù", vi:"gỗ", strokes:[{t:"heng", z:"横", v:"ngang"},{t:"shu", z:"竖", v:"dọc"},{t:"pie", z:"撇", v:"phẩy"},{t:"na", z:"捺", v:"mác"}]},
+  {ch:"本", py:"běn", vi:"gốc cây", strokes:[{t:"heng", z:"横", v:"ngang"},{t:"shu", z:"竖", v:"dọc"},{t:"pie", z:"撇", v:"phẩy"},{t:"na", z:"捺", v:"mác"},{t:"heng", z:"横", v:"ngang"}]},
+];
+
+/* ============ 状态 ============ */
+let queue = GLYPHS.slice();   // 当前待练字
+let pos = 0, score = 0, combo = 0;
+let tray = [];        // 剩余卡片 {uid, stroke}
+let filled = [];      // 已放入槽位的卡片
+let finished = false;
+let mode = "all";     // all | wrong
+let stats = {correct:0, wrong:0, done:0};
+let mistakes = [];    // {ch,py,vi,right,wrong,times}
+
+const $ = id => document.getElementById(id);
+const slotsEl = $("slots"), trayEl = $("tray");
+const cur = () => queue[pos];
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+function loadGlyph(){
+  const g = cur();
+  finished = false; filled = [];
+  let cards = g.strokes.map((s,i)=>({uid:"c"+i, stroke:s}));
+  // 打乱：避免与原顺序一致
+  let shuffled = shuffle(cards);
+  if(g.strokes.length>1 && shuffled.every((c,i)=>c.uid==="c"+i)){ shuffled = shuffle(cards); }
+  tray = shuffled;
+
+  $("bigChar").textContent = g.ch;
+  $("pinyin").textContent = g.py;
+  $("meaning").textContent = g.vi;
+  $("meta").textContent = `共 ${g.strokes.length} 笔 · ${g.strokes.length} nét`;
+  $("progress").textContent = `${pos+1}/${queue.length}`;
+  $("tian").classList.remove("done");
+  render();
+}
+
+function render(){
+  // 槽位
+  const g = cur();
+  slotsEl.innerHTML = "";
+  g.strokes.forEach((_,i)=>{
+    const slot = document.createElement("div");
+    slot.className = "slot" + (filled[i] ? " ok" : "");
+    slot.dataset.i = i;
+    slot.innerHTML = `<span class="idx">${i+1}</span>` +
+      (filled[i] ? strokeSVG(filled[i].stroke.t, "#4f9e6e") : "");
+    slotsEl.appendChild(slot);
+  });
+  // 托盘
+  trayEl.innerHTML = "";
+  tray.forEach(c=>{
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.uid = c.uid;
+    card.innerHTML = strokeSVG(c.stroke.t) + `<div class="cz">${c.stroke.z}</div><div class="vi">${c.stroke.v}</div>`;
+    attachDrag(card, c.uid);
+    trayEl.appendChild(card);
+  });
+  $("score").textContent = score;
+  $("combo").textContent = combo;
+}
+
+/* ============ 校验 ============ */
+function expectedStroke(){ return cur().strokes[filled.length]; }
+
+function recordMistake(g, exp, wrongStroke){
+  const ex = mistakes.find(m=>m.ch===g.ch && m.right.t===exp.t && m.wrong.t===wrongStroke.t);
+  if(ex){ ex.times++; }
+  else { mistakes.push({ch:g.ch, py:g.py, vi:g.vi, right:{...exp}, wrong:{...wrongStroke}, times:1}); }
+}
+
+function tryPlace(cardUid, slotIndex){
+  if(finished) return;
+  const card = tray.find(c=>c.uid===cardUid);
+  if(!card) return;
+  // 必须按顺序放入下一个空槽
+  if(slotIndex !== filled.length){
+    toast("请按从左到右的顺序放 · Đặt theo thứ tự!");
+    return;
+  }
+  const exp = expectedStroke();
+  if(card.stroke.t === exp.t){
+    filled.push(card);
+    tray = tray.filter(c=>c.uid!==cardUid);
+    combo++;
+    stats.correct++;
+    score += 10 + (combo>1 ? 5 : 0);
+    render();
+    if(filled.length === cur().strokes.length){
+      finish();
+    }
+  } else {
+    combo = 0;
+    score = Math.max(0, score-2);
+    stats.wrong++;
+    recordMistake(cur(), exp, card.stroke);
+    const el = trayEl.querySelector(`[data-uid="${cardUid}"]`);
+    if(el){ el.classList.add("wrong"); setTimeout(()=>el.classList.remove("wrong"), 380); }
+    render();
+    toast("再想想笔顺 · Thử lại nha!");
+  }
+}
+
+function finish(){
+  finished = true;
+  stats.done++;
+  $("tian").classList.add("done");
+  const g = cur();
+  $("winChar").textContent = g.ch + "  " + g.py;
+  $("winSub").textContent = g.vi + " · 太棒了！Xuất sắc!";
+  const list = $("strokeList");
+  list.innerHTML = "";
+  g.strokes.forEach((s,i)=>{
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `<span class="n">${i+1}</span>${strokeSVG(s.t)}<span class="t">${s.z}</span><span class="v">${s.v}</span>`;
+    list.appendChild(row);
+  });
+  const last = pos === queue.length-1;
+  $("winNext").textContent = last ? "查看成绩单 📋" : "下一个字 →";
+  setTimeout(()=>{ $("mask").classList.add("show"); speak(g.ch); }, 450);
+}
+
+function nextGlyph(){
+  $("mask").classList.remove("show");
+  pos++;
+  if(pos >= queue.length){ openReport(); return; }
+  loadGlyph();
+}
+
+/* ============ 拖拽（Pointer Events，兼容触屏） ============ */
+let drag = null;
+function attachDrag(card, uid){
+  card.addEventListener("pointerdown", e=>{
+    if(finished) return;
+    e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    let moved = false;
+    let clone = null;
+
+    const move = ev=>{
+      const dx = ev.clientX-startX, dy = ev.clientY-startY;
+      if(!moved && Math.hypot(dx,dy)>8){
+        moved = true;
+        clone = document.createElement("div");
+        clone.className = "drag-clone";
+        clone.innerHTML = card.outerHTML;
+        document.body.appendChild(clone);
+        card.classList.add("dragging");
+      }
+      if(moved && clone){
+        clone.style.left = ev.clientX+"px";
+        clone.style.top = ev.clientY+"px";
+        highlightSlot(ev.clientX, ev.clientY);
+      }
+    };
+    const up = ev=>{
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      clearHighlight();
+      if(moved && clone){
+        clone.remove();
+        card.classList.remove("dragging");
+        const slot = slotAt(ev.clientX, ev.clientY);
+        tryPlace(uid, slot ? Number(slot.dataset.i) : filled.length);
+      } else {
+        // 点按：自动填入下一个槽
+        tryPlace(uid, filled.length);
+      }
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+  });
+}
+
+function slotAt(x,y){
+  for(const slot of slotsEl.querySelectorAll(".slot")){
+    const r = slot.getBoundingClientRect();
+    if(x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return slot;
+  }
+  return null;
+}
+function highlightSlot(x,y){
+  clearHighlight();
+  const s = slotAt(x,y);
+  if(s && !filled[Number(s.dataset.i)]) s.classList.add("over");
+}
+function clearHighlight(){ slotsEl.querySelectorAll(".over").forEach(s=>s.classList.remove("over")); }
+
+/* ============ 提示 / 重置 / 发音 ============ */
+$("hintBtn").onclick = ()=>{
+  if(finished) return;
+  const exp = expectedStroke();
+  const target = tray.find(c=>c.stroke.t===exp.t);
+  if(!target) return;
+  const el = trayEl.querySelector(`[data-uid="${target.uid}"]`);
+  if(el){ el.classList.add("hint"); setTimeout(()=>el.classList.remove("hint"), 2100); }
+  speak(exp.z);
+};
+$("resetBtn").onclick = ()=>{ loadGlyph(); };
+$("nextBtn").onclick = nextGlyph;
+$("winNext").onclick = nextGlyph;
+$("speakBtn").onclick = ()=> speak(cur().ch);
+
+/* ============ 成绩单 ============ */
+function openReport(){
+  const total = stats.correct + stats.wrong;
+  const acc = total ? Math.round(stats.correct/total*100) : 100;
+  $("rDone").textContent = `${stats.done}/${queue.length}`;
+  $("rAcc").textContent = acc + "%";
+  $("rWrong").textContent = stats.wrong;
+
+  let rating;
+  if(total===0) rating = "还没有答题 Chưa có lượt nào";
+  else if(acc>=95) rating = "🌟 优秀！Rất xuất sắc!";
+  else if(acc>=80) rating = "👍 很棒！Khá tốt!";
+  else if(acc>=60) rating = "💪 继续加油！Cố lên!";
+  else rating = "📖 多练习笔顺 nhé!";
+  $("reportRating").textContent = rating;
+
+  const list = $("mistakeList");
+  list.innerHTML = "";
+  if(mistakes.length===0){
+    list.innerHTML = `<div class="empty-tip">🎉 本轮没有错题，全部答对！Không có chữ sai nào.</div>`;
+  } else {
+    mistakes.forEach(m=>{
+      const row = document.createElement("div");
+      row.className = "m";
+      row.innerHTML = `
+        <div class="top">
+          <span class="ch">${m.ch}</span><span class="py">${m.py}</span><span class="vi">${m.vi}</span>
+          <span class="times">×${m.times}</span>
+        </div>
+        <div class="strokes">
+          <span class="wrong-t">${strokeSVG(m.wrong.t, "#d96b6b")} ${m.wrong.z}</span>
+          <span class="arrow">→</span>
+          <span class="right-t">${strokeSVG(m.right.t, "#4f9e6e")} ${m.right.z}</span>
+        </div>`;
+      list.appendChild(row);
+    });
+  }
+  $("reportWrong").disabled = mistakes.length===0;
+  $("reportMask").classList.add("show");
+}
+
+$("reportBtn").onclick = openReport;
+$("reportClose").onclick = ()=> $("reportMask").classList.remove("show");
+
+$("reportRestart").onclick = ()=>{
+  mode = "all"; queue = GLYPHS.slice(); pos = 0;
+  score = 0; combo = 0;
+  stats = {correct:0, wrong:0, done:0}; mistakes = [];
+  $("reportMask").classList.remove("show");
+  loadGlyph();
+};
+
+$("reportWrong").onclick = ()=>{
+  const chs = [...new Set(mistakes.map(m=>m.ch))];
+  const picked = chs.map(c=>GLYPHS.find(g=>g.ch===c)).filter(Boolean);
+  if(!picked.length){ toast("暂时没有错题 Chưa có chữ sai!"); return; }
+  mode = "wrong"; queue = picked; pos = 0;
+  score = 0; combo = 0;
+  stats = {correct:0, wrong:0, done:0}; mistakes = [];
+  $("reportMask").classList.remove("show");
+  loadGlyph();
+  toast("只练习错题 Chỉ luyện chữ sai!");
+};
+
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "zh-CN"; u.rate = 0.7;
+  speechSynthesis.speak(u);
+}
+
+let toastTimer;
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), 1500);
+}
+
+loadGlyph();
+</script>
+</body>
+</html>
+<!-- （注：内容由AI生成） -->
